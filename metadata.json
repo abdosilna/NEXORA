@@ -1,0 +1,6 @@
+{
+  "name": "NEXORA BOT",
+  "description": "Modular Arabic educational WhatsApp AI bot using Baileys pairing code, SQLite persistence, learning academies, and private admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
