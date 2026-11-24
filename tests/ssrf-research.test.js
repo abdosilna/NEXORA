@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isPrivateOrReservedIp, validateSafePublicUrl } from '../src/security/ssrf.js';
+import { isPrivateOrReservedIp, validateSafePublicUrl } from '../lib/security/ssrf.js';
 
 test('blocks loopback, metadata, private IPv4, and link-local IPv6 addresses', async () => {
   assert.equal(isPrivateOrReservedIp('127.0.0.1'), true);

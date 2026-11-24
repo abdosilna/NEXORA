@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../src/config/env.js';
-import { AiService } from '../src/ai/index.js';
-import { BaseAiProvider } from '../src/ai/providers/base.js';
+import { loadConfig } from '../config.js';
+import { AiService } from '../lib/ai/index.js';
+import { BaseAiProvider } from '../lib/ai/providers/base.js';
 
 class FailingProvider extends BaseAiProvider {
   constructor() {

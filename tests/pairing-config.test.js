@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateInternationalPhone, formatPairingCode } from '../src/utils/phone.js';
-import { loadConfig } from '../src/config/env.js';
-import { PairingManager } from '../src/whatsapp/pairing.js';
+import { validateInternationalPhone, formatPairingCode } from '../lib/utils/phone.js';
+import { loadConfig } from '../config.js';
+import { PairingManager } from '../lib/whatsapp/pairing.js';
 
 test('validates international phone numbers accurately', () => {
   assert.equal(validateInternationalPhone('+966 50 123 4567').valid, true);

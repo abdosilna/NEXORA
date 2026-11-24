@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractIncomingMessageContent } from '../src/whatsapp/message-handler.js';
+import { extractIncomingMessageContent } from '../lib/whatsapp/message-handler.js';
 
 test('parses plain text and extendedTextMessage', () => {
   assert.deepEqual(

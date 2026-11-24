@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../src/config/env.js';
-import { createDatabase } from '../src/database/connection.js';
-import { runMigrations } from '../src/database/migrations/runner.js';
-import { createRepositories } from '../src/database/repositories/index.js';
-import { AiService } from '../src/ai/index.js';
-import { AudioService } from '../src/modules/audio/index.js';
-import { TutorModule } from '../src/modules/tutor/index.js';
-import { LanguageAcademyModule } from '../src/modules/languages/index.js';
-import { ProgrammingAcademyModule } from '../src/modules/programming/index.js';
-import { ResearchModule } from '../src/modules/research/index.js';
-import { LibraryModule } from '../src/modules/library/index.js';
-import { SafeSupportModule } from '../src/modules/support/index.js';
-import { BotRouter } from '../src/bot/router.js';
+import { loadConfig } from '../config.js';
+import { createDatabase } from '../lib/database/connection.js';
+import { runMigrations } from '../lib/database/migrations/runner.js';
+import { createRepositories } from '../lib/database/repositories/index.js';
+import { AiService } from '../lib/ai/index.js';
+import { AudioService } from '../lib/tts/index.js';
+import { TutorModule } from '../lib/bot/modules/tutor.js';
+import { LanguageAcademyModule } from '../lib/bot/modules/languages.js';
+import { ProgrammingAcademyModule } from '../lib/bot/modules/programming.js';
+import { ResearchModule } from '../lib/search/index.js';
+import { LibraryModule } from '../lib/bot/modules/library.js';
+import { SafeSupportModule } from '../lib/bot/modules/support.js';
+import { BotRouter } from '../lib/bot/router.js';
 
 function createTestHarness() {
   const config = loadConfig({ DATABASE_PATH: ':memory:', AI_PROVIDER: 'disabled', TTS_PROVIDER: 'disabled' }, { loadDotenv: false });

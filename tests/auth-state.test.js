@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { useAtomicMultiFileAuthState } from '../src/whatsapp/auth-state.js';
+import { useAtomicMultiFileAuthState } from '../lib/whatsapp/auth-state.js';
 
 test('auth state persists creds and BufferJSON keys across restarts without temp leftovers', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nexora-auth-test-'));

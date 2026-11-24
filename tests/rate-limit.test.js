@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RateLimiter } from '../src/security/rate-limit.js';
+import { RateLimiter } from '../lib/security/rate-limit.js';
 
 test('RateLimiter enforces threshold and resets cleanly', () => {
   const limiter = new RateLimiter();

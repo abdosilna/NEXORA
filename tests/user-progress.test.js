@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDatabase } from '../src/database/connection.js';
-import { runMigrations } from '../src/database/migrations/runner.js';
-import { createRepositories } from '../src/database/repositories/index.js';
+import { createDatabase } from '../lib/database/connection.js';
+import { runMigrations } from '../lib/database/migrations/runner.js';
+import { createRepositories } from '../lib/database/repositories/index.js';
 
 test('auto-registers user, persists progress/SRS, exports data, and deletes cleanly', () => {
   const db = createDatabase(':memory:');

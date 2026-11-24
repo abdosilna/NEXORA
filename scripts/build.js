@@ -4,7 +4,10 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const requiredFiles = [
-  'src/index.js',
+  'index.js',
+  'main.js',
+  'handler.js',
+  'config.js',
   'public/admin/index.html',
   'public/admin/app.js',
   'public/admin/styles.css',

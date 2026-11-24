@@ -3,12 +3,27 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const TARGET_DIRS = ['src', 'scripts', 'tests', 'public/admin'];
+const TARGET_PATHS = [
+  'config.js',
+  'handler.js',
+  'main.js',
+  'index.js',
+  'lib',
+  'plugins',
+  'scripts',
+  'tests',
+  'public/admin',
+];
 
-function collectJsFiles(dir, out = []) {
-  if (!fs.existsSync(dir)) return out;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
+function collectJsFiles(target, out = []) {
+  if (!fs.existsSync(target)) return out;
+  const stat = fs.statSync(target);
+  if (stat.isFile()) {
+    if (target.endsWith('.js')) out.push(target);
+    return out;
+  }
+  for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+    const full = path.join(target, entry.name);
     if (entry.isDirectory()) {
       collectJsFiles(full, out);
     } else if (entry.isFile() && entry.name.endsWith('.js')) {
@@ -18,7 +33,7 @@ function collectJsFiles(dir, out = []) {
   return out;
 }
 
-const files = TARGET_DIRS.flatMap((d) => collectJsFiles(path.join(ROOT, d)));
+const files = TARGET_PATHS.flatMap((p) => collectJsFiles(path.join(ROOT, p)));
 let checked = 0;
 
 for (const file of files) {
@@ -44,16 +59,21 @@ for (const rel of requiredAssets) {
 
 // Verify core ESM import graph resolves cleanly without missing modules or circular init failures
 await Promise.all([
-  import('../src/config/env.js'),
-  import('../src/whatsapp/connection.js'),
-  import('../src/whatsapp/pairing.js'),
-  import('../src/whatsapp/auth-state.js'),
-  import('../src/whatsapp/message-handler.js'),
-  import('../src/bot/router.js'),
-  import('../src/admin/server.js'),
+  import('../config.js'),
+  import('../handler.js'),
+  import('../main.js'),
+  import('../index.js'),
+  import('../lib/whatsapp/connection.js'),
+  import('../lib/whatsapp/pairing.js'),
+  import('../lib/whatsapp/auth-state.js'),
+  import('../lib/whatsapp/plugins.js'),
+  import('../lib/whatsapp/simple.js'),
+  import('../lib/whatsapp/message-handler.js'),
+  import('../lib/bot/router.js'),
+  import('../lib/admin/server.js'),
 ]);
 
-const { loadConfig } = await import('../src/config/env.js');
+const { loadConfig } = await import('../config.js');
 loadConfig({ DATABASE_PATH: ':memory:', WHATSAPP_AUTO_CONNECT: 'false' }, { loadDotenv: false });
 
 console.log(`Verification passed: ${checked} ES module files checked, ESM imports and config schema verified.`);

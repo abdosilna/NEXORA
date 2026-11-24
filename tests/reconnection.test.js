@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../src/config/env.js';
+import { loadConfig } from '../config.js';
 import {
   WhatsAppConnectionManager,
   calculateReconnectDelay,
   classifyDisconnectStatus,
-} from '../src/whatsapp/connection.js';
+} from '../lib/whatsapp/connection.js';
 
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createDatabase } from '../src/database/connection.js';
-import { runMigrations } from '../src/database/migrations/runner.js';
-import { createRepositories } from '../src/database/repositories/index.js';
+import { createDatabase } from '../lib/database/connection.js';
+import { runMigrations } from '../lib/database/migrations/runner.js';
+import { createRepositories } from '../lib/database/repositories/index.js';
 
 test('classifies Baileys disconnect reasons accurately', () => {
   assert.equal(classifyDisconnectStatus(401).action, 'stop_logged_out');

@@ -1,17 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../src/config/env.js';
-import { createDatabase } from '../src/database/connection.js';
-import { runMigrations } from '../src/database/migrations/runner.js';
-import { createRepositories } from '../src/database/repositories/index.js';
-import { AiService } from '../src/ai/index.js';
-import { AudioService } from '../src/modules/audio/index.js';
-import { ResearchModule } from '../src/modules/research/index.js';
-import { LanguageAcademyModule } from '../src/modules/languages/index.js';
-import { ProgrammingAcademyModule } from '../src/modules/programming/index.js';
-import { HealthService } from '../src/services/health.js';
-import { createAdminServer } from '../src/admin/server.js';
-import { resolveSenderJid } from '../src/whatsapp/message-handler.js';
+import { loadConfig } from '../config.js';
+import { createDatabase } from '../lib/database/connection.js';
+import { runMigrations } from '../lib/database/migrations/runner.js';
+import { createRepositories } from '../lib/database/repositories/index.js';
+import { AiService } from '../lib/ai/index.js';
+import { AudioService } from '../lib/tts/index.js';
+import { ResearchModule } from '../lib/search/index.js';
+import { LanguageAcademyModule } from '../lib/bot/modules/languages.js';
+import { ProgrammingAcademyModule } from '../lib/bot/modules/programming.js';
+import { HealthService } from '../lib/utils/health.js';
+import { createAdminServer } from '../lib/admin/server.js';
+import { resolveSenderJid } from '../lib/whatsapp/message-handler.js';
 
 test('health endpoint, encoded secret path guards, and route parameter validation work end-to-end', async () => {
   const config = loadConfig({ DATABASE_PATH: ':memory:', AI_PROVIDER: 'disabled' }, { loadDotenv: false });
