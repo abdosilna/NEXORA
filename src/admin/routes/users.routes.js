@@ -14,6 +14,7 @@ export function createUsersRoutes({ repos, authMiddleware }) {
 
   router.get('/users/:id/summary', authMiddleware.requireAuth, authMiddleware.requireRole('viewer'), (req, res) => {
     const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Invalid user id' });
     const user = repos.users.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const summary = repos.progress.getUserSummary(userId);
@@ -36,6 +37,7 @@ export function createUsersRoutes({ repos, authMiddleware }) {
 
   router.delete('/users/:id', authMiddleware.requireAuth, authMiddleware.requireRole('super_admin'), (req, res) => {
     const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Invalid user id' });
     const deleted = repos.users.deleteUser(userId);
     if (!deleted) return res.status(404).json({ error: 'User not found' });
     repos.admin.logAudit({

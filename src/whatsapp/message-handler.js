@@ -2,6 +2,42 @@ import { jidNormalizedUser } from '@whiskeysockets/baileys';
 import { sharedRateLimiter } from '../security/rate-limit.js';
 import { sanitizeIncomingText } from '../security/sanitize.js';
 
+export async function resolveSenderJid(sock, key) {
+  const candidate = key?.remoteJidAlt || key?.participantAlt || key?.remoteJid || '';
+  if (!candidate) return '';
+  if (candidate.endsWith('@lid') && sock?.signalRepository?.lidMapping?.getPNForLID) {
+    try {
+      const mapped = await sock.signalRepository.lidMapping.getPNForLID(candidate);
+      if (mapped) return jidNormalizedUser(mapped);
+    } catch {
+      // Fallback to normalized LID below
+    }
+  }
+  try {
+    return jidNormalizedUser(candidate);
+  } catch {
+    return candidate;
+  }
+}
+
+export async function resolveSenderJid(sock, key) {
+  const candidate = key?.remoteJidAlt || key?.participantAlt || key?.remoteJid || '';
+  if (!candidate) return '';
+  if (candidate.endsWith('@lid') && sock?.signalRepository?.lidMapping?.getPNForLID) {
+    try {
+      const mapped = await sock.signalRepository.lidMapping.getPNForLID(candidate);
+      if (mapped) return jidNormalizedUser(mapped);
+    } catch {
+      // Fallback to normalized LID below
+    }
+  }
+  try {
+    return jidNormalizedUser(candidate);
+  } catch {
+    return candidate;
+  }
+}
+
 export function extractIncomingMessageContent(msg) {
   if (!msg || !msg.message) {
     return { text: '', selectedId: null, kind: 'empty' };
@@ -81,7 +117,8 @@ export class IncomingMessageHandler {
           continue;
         }
 
-        const resolvedJid = jidNormalizedUser(msg.key.remoteJidAlt || remoteJid);
+        const resolvedJid = await resolveSenderJid(sock, msg.key);
+        if (!resolvedJid) continue;
         const extracted = extractIncomingMessageContent(msg);
 
         if (extracted.kind === 'audio') {

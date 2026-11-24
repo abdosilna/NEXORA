@@ -3,6 +3,14 @@ export class ProgressRepository {
     this.db = db;
   }
 
+  markInProgress({ userId, courseId, lessonId }) {
+    const existing = this.db
+      .prepare('SELECT id, status FROM user_progress WHERE user_id = ? AND lesson_id = ?')
+      .get(userId, lessonId);
+    if (existing) return existing;
+    return this.recordLessonProgress({ userId, courseId, lessonId, masteryScore: 0, completed: false });
+  }
+
   recordLessonProgress({ userId, courseId, lessonId, masteryScore = 80, completed = true }) {
     const existing = this.db
       .prepare('SELECT * FROM user_progress WHERE user_id = ? AND lesson_id = ?')

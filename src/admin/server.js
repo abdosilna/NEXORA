@@ -45,8 +45,24 @@ export function createAdminServer({ config, repos, healthService, logger, public
 
   // Explicitly block accidental exposure of sensitive directories/files
   app.use((req, res, next) => {
-    const p = req.path.toLowerCase();
-    if (p.includes('.env') || p.includes('/data/') || p.endsWith('.sqlite') || p.includes('creds.json')) {
+    let decoded = req.path;
+    try {
+      decoded = decodeURIComponent(req.path);
+    } catch {
+      return res.status(400).json({ error: 'Malformed request path' });
+    }
+    const p = decoded.toLowerCase();
+    if (
+      p.includes('.env') ||
+      p.includes('/data/') ||
+      p === '/data' ||
+      p.includes('.sqlite') ||
+      p.includes('creds.json') ||
+      p.includes('pre-key') ||
+      p.includes('session-') ||
+      p.includes('sender-key') ||
+      p.includes('app-state-sync')
+    ) {
       return res.status(403).json({ error: 'Access denied' });
     }
     return next();

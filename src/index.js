@@ -26,7 +26,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 export async function bootstrapApplication(envOverrides = {}) {
-  const config = loadConfig({ ...process.env, ...envOverrides });
+  const config = loadConfig(undefined, { overrides: envOverrides });
   const logger = createLogger(config.logLevel);
 
   for (const warning of config.warnings) {
@@ -90,11 +90,12 @@ export async function bootstrapApplication(envOverrides = {}) {
     publicDir: path.join(ROOT_DIR, 'public/admin'),
   });
 
-  const httpServer = await new Promise((resolve) => {
+  const httpServer = await new Promise((resolve, reject) => {
     const srv = app.listen(config.port, '0.0.0.0', () => {
       logger.info('server', `${config.botName} listening on http://0.0.0.0:${config.port}`);
       resolve(srv);
     });
+    srv.once('error', reject);
   });
 
   // Start WhatsApp socket non-blocking so health & admin server remain responsive immediately
@@ -111,6 +112,7 @@ export async function bootstrapApplication(envOverrides = {}) {
     await whatsappManager.shutdown();
     await new Promise((resolve) => {
       httpServer.close(() => resolve());
+      httpServer.closeAllConnections?.();
     });
     db.close();
     logger.info('runtime', 'Shutdown complete');

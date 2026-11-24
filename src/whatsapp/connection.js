@@ -49,8 +49,26 @@ export function classifyDisconnectStatus(statusCode) {
         'Another session replaced this connection (440). Ensure no duplicate bot instance is running.',
     };
   }
+  if (statusCode === DisconnectReason.multideviceMismatch || statusCode === 411) {
+    return {
+      action: 'stop_multidevice_mismatch',
+      reason: 'multideviceMismatch (411)',
+      userActionRequired:
+        'WhatsApp multi-device mismatch (411). Remove data/auth and pair again. User database data is preserved.',
+    };
+  }
   if (statusCode === DisconnectReason.restartRequired || statusCode === 515) {
     return { action: 'reconnect_fast', reason: 'restartRequired (515)', userActionRequired: null };
+  }
+  if (
+    statusCode === DisconnectReason.timedOut ||
+    statusCode === DisconnectReason.connectionLost ||
+    statusCode === 408
+  ) {
+    return { action: 'reconnect_backoff', reason: 'timedOut (408)', userActionRequired: null };
+  }
+  if (statusCode === DisconnectReason.unavailableService || statusCode === 503) {
+    return { action: 'reconnect_backoff', reason: 'unavailableService (503)', userActionRequired: null };
   }
   if (statusCode === DisconnectReason.connectionClosed || statusCode === 428) {
     return { action: 'reconnect_backoff', reason: 'connectionClosed (428)', userActionRequired: null };
@@ -131,6 +149,9 @@ export class WhatsAppConnectionManager {
     this.status.connected = false;
 
     const { state, saveCreds } = await useAtomicMultiFileAuthState(this.config.whatsapp.authDir);
+    if (!state.creds?.registered) {
+      this.pairing.resetForNewAuthSession();
+    }
     let version;
     try {
       const latest = await fetchLatestBaileysVersion();
@@ -176,10 +197,13 @@ export class WhatsAppConnectionManager {
   async handleConnectionUpdate(sock, update) {
     const { connection, lastDisconnect, qr } = update || {};
 
-    // Never display QR codes; when WhatsApp signals unregistered device (qr or connecting), request 8-digit pairing code ONCE
-    if ((qr || connection === 'connecting') && !sock.authState?.creds?.registered) {
+    // Never display QR codes; when Baileys reaches the pair-device IQ exchange (qr emitted after Noise handshake),
+    // request the 8-digit pairing code ONCE for unregistered devices.
+    if (qr && !sock.authState?.creds?.registered) {
       this.status.state = 'pairing_pending';
       await this.pairing.requestOnce(sock);
+    } else if (connection === 'connecting' && !sock.authState?.creds?.registered && this.status.state !== 'pairing_pending') {
+      this.status.state = 'connecting';
     }
 
     if (connection === 'open') {
@@ -251,15 +275,17 @@ export class WhatsAppConnectionManager {
 
   _teardownActiveSocket() {
     if (!this.activeSocket) return;
+    const sock = this.activeSocket;
+    this.activeSocket = null;
     try {
-      this.activeSocket.ev?.removeAllListeners?.('creds.update');
-      this.activeSocket.ev?.removeAllListeners?.('connection.update');
-      this.activeSocket.ev?.removeAllListeners?.('messages.upsert');
-      this.activeSocket.ws?.close?.();
+      sock.ev?.removeAllListeners?.('creds.update');
+      sock.ev?.removeAllListeners?.('connection.update');
+      sock.ev?.removeAllListeners?.('messages.upsert');
+      sock.end?.(undefined);
+      sock.ws?.close?.();
     } catch {
       // Ignore cleanup errors on closing socket
     }
-    this.activeSocket = null;
   }
 
   async shutdown() {

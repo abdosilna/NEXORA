@@ -47,13 +47,15 @@ const EnvSchema = z.object({
   TEMP_MEDIA_DIR: z.string().trim().min(1).default('data/tmp-media'),
 });
 
-export function loadConfig(envSource = process.env, { loadDotenv = true } = {}) {
+export function loadConfig(envSource, { loadDotenv = true, overrides = undefined } = {}) {
   if (loadDotenv && !loadedEnv) {
     dotenv.config({ quiet: true });
     loadedEnv = true;
   }
 
-  const parsed = EnvSchema.safeParse(envSource);
+  const baseEnv = envSource || process.env;
+  const resolvedSource = overrides ? { ...baseEnv, ...overrides } : baseEnv;
+  const parsed = EnvSchema.safeParse(resolvedSource);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);
@@ -95,7 +97,7 @@ export function loadConfig(envSource = process.env, { loadDotenv = true } = {}) 
 
   // Optional Gemini fallback key if user configured GEMINI_API_KEY in AI Studio Secrets
   const effectiveAiApiKey =
-    cfg.AI_API_KEY || (cfg.AI_PROVIDER === 'gemini' ? String(envSource.GEMINI_API_KEY || '').trim() : '');
+    cfg.AI_API_KEY || (cfg.AI_PROVIDER === 'gemini' ? String(resolvedSource.GEMINI_API_KEY || '').trim() : '');
 
   if (cfg.AI_PROVIDER !== 'disabled' && !effectiveAiApiKey) {
     warnings.push(`AI_API_KEY is not configured for ${cfg.AI_PROVIDER}; AI Tutor will use deterministic offline fallback`);

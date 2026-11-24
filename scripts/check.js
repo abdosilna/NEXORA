@@ -26,4 +26,34 @@ for (const file of files) {
   checked += 1;
 }
 
-console.log(`Syntax check passed for ${checked} JavaScript ES module files.`);
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+if (!fs.existsSync(path.join(ROOT, pkg.main))) {
+  throw new Error(`Missing package.json main entry point: ${pkg.main}`);
+}
+
+const requiredAssets = [
+  'public/admin/index.html',
+  'public/admin/app.js',
+  'public/admin/styles.css',
+];
+for (const rel of requiredAssets) {
+  if (!fs.existsSync(path.join(ROOT, rel))) {
+    throw new Error(`Missing required admin asset: ${rel}`);
+  }
+}
+
+// Verify core ESM import graph resolves cleanly without missing modules or circular init failures
+await Promise.all([
+  import('../src/config/env.js'),
+  import('../src/whatsapp/connection.js'),
+  import('../src/whatsapp/pairing.js'),
+  import('../src/whatsapp/auth-state.js'),
+  import('../src/whatsapp/message-handler.js'),
+  import('../src/bot/router.js'),
+  import('../src/admin/server.js'),
+]);
+
+const { loadConfig } = await import('../src/config/env.js');
+loadConfig({ DATABASE_PATH: ':memory:', WHATSAPP_AUTO_CONNECT: 'false' }, { loadDotenv: false });
+
+console.log(`Verification passed: ${checked} ES module files checked, ESM imports and config schema verified.`);

@@ -45,6 +45,7 @@ export function createAuthRoutes({ repos, authMiddleware }) {
   const router = express.Router();
 
   router.get('/status', (req, res) => {
+    repos.admin.pruneExpiredSessions();
     const needsSetup = repos.admin.countAdmins() === 0;
     const token = extractAdminToken(req);
     const session = token ? repos.admin.validateSession(token) : null;
@@ -67,7 +68,8 @@ export function createAuthRoutes({ repos, authMiddleware }) {
 
     try {
       const admin = repos.admin.bootstrapFirstAdmin(parsed.data);
-      const session = repos.admin.createSession(admin.id, {
+      repos.admin.pruneExpiredSessions();
+    const session = repos.admin.createSession(admin.id, {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       });

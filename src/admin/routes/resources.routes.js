@@ -44,6 +44,9 @@ export function createResourcesRoutes({ repos, authMiddleware }) {
 
   router.delete('/resources/:id', authMiddleware.requireAuth, authMiddleware.requireRole('editor'), (req, res) => {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid resource id' });
+    }
     const ok = repos.resources.delete(id);
     if (!ok) return res.status(404).json({ error: 'Resource not found' });
     repos.admin.logAudit({

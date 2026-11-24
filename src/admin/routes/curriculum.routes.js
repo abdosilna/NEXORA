@@ -11,6 +11,9 @@ const CourseSchema = z.object({
   is_published: z.boolean().default(true),
 });
 
+const CourseUpdateSchema = CourseSchema.partial();
+const PositiveIdSchema = z.coerce.number().int().positive();
+
 const LessonSchema = z.object({
   course_id: z.coerce.number().int().positive(),
   lesson_type: z
@@ -50,8 +53,12 @@ export function createCurriculumRoutes({ repos, authMiddleware }) {
   });
 
   router.put('/courses/:id', authMiddleware.requireAuth, authMiddleware.requireRole('editor'), (req, res) => {
-    const id = Number(req.params.id);
-    const updated = repos.curriculum.updateCourse(id, req.body || {});
+    const idCheck = PositiveIdSchema.safeParse(req.params.id);
+    if (!idCheck.success) return res.status(400).json({ error: 'Invalid course id' });
+    const parsed = CourseUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid course update payload' });
+    const id = idCheck.data;
+    const updated = repos.curriculum.updateCourse(id, parsed.data);
     if (!updated) return res.status(404).json({ error: 'Course not found' });
     repos.admin.logAudit({
       adminUserId: req.admin.id,
@@ -64,7 +71,9 @@ export function createCurriculumRoutes({ repos, authMiddleware }) {
   });
 
   router.delete('/courses/:id', authMiddleware.requireAuth, authMiddleware.requireRole('super_admin'), (req, res) => {
-    const id = Number(req.params.id);
+    const idCheck = PositiveIdSchema.safeParse(req.params.id);
+    if (!idCheck.success) return res.status(400).json({ error: 'Invalid course id' });
+    const id = idCheck.data;
     const ok = repos.curriculum.deleteCourse(id);
     if (!ok) return res.status(404).json({ error: 'Course not found' });
     repos.admin.logAudit({
@@ -96,7 +105,9 @@ export function createCurriculumRoutes({ repos, authMiddleware }) {
   });
 
   router.delete('/lessons/:id', authMiddleware.requireAuth, authMiddleware.requireRole('editor'), (req, res) => {
-    const id = Number(req.params.id);
+    const idCheck = PositiveIdSchema.safeParse(req.params.id);
+    if (!idCheck.success) return res.status(400).json({ error: 'Invalid lesson id' });
+    const id = idCheck.data;
     const ok = repos.curriculum.deleteLesson(id);
     if (!ok) return res.status(404).json({ error: 'Lesson not found' });
     repos.admin.logAudit({

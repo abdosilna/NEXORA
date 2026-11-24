@@ -8,14 +8,12 @@ const fileQueues = new Map();
 function enqueueFileOp(filePath, fn) {
   const prev = fileQueues.get(filePath) || Promise.resolve();
   const next = prev.then(fn, fn);
-  fileQueues.set(
-    filePath,
-    next.finally(() => {
-      if (fileQueues.get(filePath) === next) {
-        fileQueues.delete(filePath);
-      }
-    })
-  );
+  const tail = next.catch(() => undefined).finally(() => {
+    if (fileQueues.get(filePath) === tail) {
+      fileQueues.delete(filePath);
+    }
+  });
+  fileQueues.set(filePath, tail);
   return next;
 }
 
@@ -28,8 +26,13 @@ async function atomicWriteJson(filePath, data) {
   const tmpPath = `${filePath}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
   const serialized = JSON.stringify(data, BufferJSON.replacer);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(tmpPath, serialized, { mode: 0o600 });
-  await fs.rename(tmpPath, filePath);
+  try {
+    await fs.writeFile(tmpPath, serialized, { mode: 0o600 });
+    await fs.rename(tmpPath, filePath);
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
 }
 
 export async function useAtomicMultiFileAuthState(folder) {

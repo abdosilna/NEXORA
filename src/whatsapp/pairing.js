@@ -6,18 +6,23 @@ export class PairingManager {
     this.logger = logger;
     this.printToConsole = printToConsole;
     this.requestedForSession = false;
+    this.inFlight = false;
     this.lastRequestedAt = 0;
     this.lastError = null;
   }
 
   resetForNewAuthSession() {
     this.requestedForSession = false;
+    this.inFlight = false;
     this.lastError = null;
   }
 
   canRequest(sock) {
     if (!sock || sock.authState?.creds?.registered) {
       return { ok: false, reason: 'already_registered' };
+    }
+    if (this.inFlight) {
+      return { ok: false, reason: 'pairing_in_flight' };
     }
     if (this.requestedForSession) {
       return { ok: false, reason: 'already_requested' };
@@ -35,18 +40,25 @@ export class PairingManager {
   async requestOnce(sock) {
     const check = this.canRequest(sock);
     if (!check.ok) {
-      if (check.reason !== 'already_registered' && check.reason !== 'already_requested') {
+      if (
+        check.reason !== 'already_registered' &&
+        check.reason !== 'already_requested' &&
+        check.reason !== 'pairing_in_flight'
+      ) {
         this.lastError = check.reason;
       }
       return { requested: false, reason: check.reason };
     }
 
-    // Lock immediately before async network call so rapid connection.update events never loop
-    this.requestedForSession = true;
+    // Lock inFlight and record cooldown timestamp before async network call so rapid events never loop,
+    // while allowing safe retry after cooldown if requestPairingCode throws.
+    this.inFlight = true;
     this.lastRequestedAt = Date.now();
 
     try {
       const code = await sock.requestPairingCode(check.digits);
+      this.requestedForSession = true;
+      this.lastError = null;
       const formatted = formatPairingCode(code);
 
       // Print ONLY to the private server console (never store in DB or expose in HTTP logs)
@@ -60,9 +72,12 @@ export class PairingManager {
       this.logger?.info?.('whatsapp-pairing', 'Pairing code generated and printed to private server console');
       return { requested: true };
     } catch (err) {
+      this.requestedForSession = false;
       this.lastError = err.message;
       this.logger?.error?.('whatsapp-pairing', 'Failed to request pairing code', err);
       return { requested: false, reason: err.message };
+    } finally {
+      this.inFlight = false;
     }
   }
 }

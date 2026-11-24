@@ -165,6 +165,11 @@ export class LanguageAcademyModule {
       data: { step: 'in_lesson', lessonId: lesson.id, courseId: lesson.course_id },
     });
 
+    this.repos.progress.markInProgress({
+      userId: user.id,
+      courseId: lesson.course_id,
+      lessonId: lesson.id,
+    });
     this.repos.progress.recordLearningEvent({
       userId: user.id,
       module: 'languages',

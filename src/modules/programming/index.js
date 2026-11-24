@@ -128,6 +128,17 @@ export class ProgrammingAcademyModule {
       menu: 'programming',
       data: { step: 'in_lesson', lessonId: lesson.id, courseId: lesson.course_id },
     });
+    this.repos.progress.markInProgress({
+      userId: user.id,
+      courseId: lesson.course_id,
+      lessonId: lesson.id,
+    });
+    this.repos.progress.recordLearningEvent({
+      userId: user.id,
+      module: 'programming',
+      eventType: 'lesson_opened',
+      topic: lesson.title_ar,
+    });
 
     return {
       text: [

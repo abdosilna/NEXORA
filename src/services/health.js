@@ -20,7 +20,7 @@ export class HealthService {
     const waStatus = this.whatsappManager?.getStatus?.() || {
       state: 'idle',
       connected: false,
-      needsReparing: false,
+      needsRepairing: false,
     };
 
     return {
