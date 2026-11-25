@@ -15,6 +15,7 @@ import { ProgrammingAcademyModule } from '../lib/bot/modules/programming.js';
 import { ResearchEngine } from '../lib/search/index.js';
 import { LibraryModule } from '../lib/bot/modules/library.js';
 import { SafeSupportModule } from '../lib/bot/modules/support.js';
+import { CreativeStudioModule } from '../lib/creative/index.js';
 import { BotRouter } from '../lib/bot/router.js';
 import { PluginManager } from '../lib/whatsapp/plugins.js';
 import { WhatsAppSender } from '../lib/whatsapp/sender.js';
@@ -43,6 +44,7 @@ async function createHandlerHarness({ adminNumber = '966509990000' } = {}) {
     programming: new ProgrammingAcademyModule({ repos, aiService }),
     research: researchService,
     audio: audioService,
+    creative: new CreativeStudioModule(config, { repos }),
     library: new LibraryModule({ repos }),
     support: new SafeSupportModule({ repos, aiService }),
   };
@@ -84,19 +86,20 @@ async function createHandlerHarness({ adminNumber = '966509990000' } = {}) {
   return { config, db, repos, pluginManager, handler, mockSock, sent, sender };
 }
 
-test('PluginManager loads and reloads all 8 Silana-style plugins', async () => {
+test('PluginManager loads and reloads all 9 Silana-style plugins', async () => {
   const db = createDatabase(':memory:');
   runMigrations(db);
   const repos = createRepositories(db);
   const pm = new PluginManager({ pluginsDir: path.resolve('plugins'), repos });
 
   const loaded = await pm.loadPlugins();
-  assert.equal(loaded.length, 8);
+  assert.equal(loaded.length, 9);
   const names = loaded.map((p) => p.name).sort();
   assert.deepEqual(names, [
     'admin',
     'ai-tutor',
     'anime',
+    'creative',
     'languages',
     'menu',
     'programming',
@@ -105,7 +108,7 @@ test('PluginManager loads and reloads all 8 Silana-style plugins', async () => {
   ]);
 
   const reloaded = await pm.reloadPlugins();
-  assert.equal(reloaded.length, 8);
+  assert.equal(reloaded.length, 9);
   db.close();
 });
 
@@ -227,7 +230,7 @@ test('NexoraMessageHandler handles private menus, prefixed plugins, group gating
     ],
   });
   assert.equal(sent.length, 5);
-  assert.ok(sent[4].content.text.includes('الإضافات المحمّلة (8)'));
+  assert.ok(sent[4].content.text.includes('الإضافات المحمّلة (9)'));
 
   // 6. Loop protection ignores duplicate message IDs, fromMe messages, and bot's own sent IDs
   await handler.handleUpsert({
@@ -253,7 +256,7 @@ test('NexoraMessageHandler handles private menus, prefixed plugins, group gating
   db.close();
 });
 
-test('bootstrapApplication boots Express, loads 8 plugins, serves /health, and shuts down cleanly', async () => {
+test('bootstrapApplication boots Express, loads 9 plugins, serves /health, and shuts down cleanly', async () => {
   const appCtx = await bootstrapApplication({
     PORT: '3198',
     DATABASE_PATH: ':memory:',
@@ -268,7 +271,8 @@ test('bootstrapApplication boots Express, loads 8 plugins, serves /health, and s
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.ok, true);
-    assert.equal(body.plugins.loaded, 8);
+    assert.equal(body.plugins.loaded, 9);
+    assert.ok(body.creative);
   } finally {
     await appCtx.shutdown('TEST_DONE');
   }

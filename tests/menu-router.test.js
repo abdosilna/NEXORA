@@ -13,6 +13,7 @@ import { ProgrammingAcademyModule } from '../lib/bot/modules/programming.js';
 import { ResearchModule } from '../lib/search/index.js';
 import { LibraryModule } from '../lib/bot/modules/library.js';
 import { SafeSupportModule } from '../lib/bot/modules/support.js';
+import { CreativeStudioModule } from '../lib/creative/index.js';
 import { BotRouter } from '../lib/bot/router.js';
 
 function createTestHarness({ aiProvider = null } = {}) {
@@ -29,6 +30,7 @@ function createTestHarness({ aiProvider = null } = {}) {
     programming: new ProgrammingAcademyModule({ repos, aiService }),
     research: researchService,
     audio: audioService,
+    creative: new CreativeStudioModule(config, { repos }),
     library: new LibraryModule({ repos }),
     support: new SafeSupportModule({ repos, aiService }),
   };
@@ -115,6 +117,40 @@ test('home menu smartly routes general questions to conversational AI and explic
   const qRes = await router.route({ user, text: 'ما هي البرمجة؟' });
   assert.ok(qRes.text.includes('إجابة عربية واضحة حول: ما هي البرمجة؟'));
   assert.equal(repos.users.getState(user.id).menu, 'tutor');
+
+  db.close();
+});
+
+test('9-section interactive menu callbacks route Creative Studio, Library pagination, Help/Settings, and Node.js advanced tracks', async () => {
+  const { db, router, user } = createTestHarness();
+
+  const home = await router.route({ user, text: 'رئيسية' });
+  const totalRows = home.interactiveList.sections.reduce((acc, s) => acc + s.rows.length, 0);
+  assert.equal(totalRows, 9);
+
+  // Creative Studio via number 6
+  const creativeHome = await router.route({ user, text: '6' });
+  assert.ok(creativeHome.text.includes('الاستوديو الإبداعي'));
+  assert.ok(creativeHome.interactiveList?.sections?.length >= 2);
+
+  // Library Hub via callback -> Knowledge -> Pagination
+  const libHub = await router.route({ user, selectedId: 'menu:library_hub', text: '' });
+  assert.ok(libHub.text.includes('مكتبة الأنمي والترفيه المرخّص والمعرفة'));
+
+  const animePage1 = await router.route({ user, selectedId: 'library:anime', text: '' });
+  assert.ok(animePage1.text.includes('صفحة 1'));
+
+  // Help & Settings Hub via callback -> Settings
+  const helpSettings = await router.route({ user, selectedId: 'menu:help_settings', text: '' });
+  assert.ok(helpSettings.text.includes('المساعدة والإعدادات'));
+  const settings = await router.route({ user, selectedId: 'settings:open', text: '' });
+  assert.ok(settings.text.includes('الإعدادات والخصوصية'));
+
+  // Node.js Programming track -> Advanced level filter callback
+  await router.route({ user, selectedId: 'prog:track:nodejs', text: '' });
+  const nodeAdv = await router.route({ user, selectedId: 'prog:level:advanced', text: '' });
+  assert.ok(nodeAdv.text.includes('Node.js'));
+  assert.ok(nodeAdv.text.includes('متقدم'));
 
   db.close();
 });

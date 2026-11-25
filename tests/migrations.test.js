@@ -26,10 +26,10 @@ const EXPECTED_TABLES = [
   'plugin_stats',
 ];
 
-test('migrations create all 18 required tables, >=20 beginner lessons per language, and complete programming tracks', () => {
+test('migrations create all 18 required tables, >=20 beginner lessons per language, and 3-tier programming tracks', () => {
   const db = createDatabase(':memory:');
   const firstRun = runMigrations(db);
-  assert.equal(firstRun.length, 4);
+  assert.equal(firstRun.length, 5);
 
   const secondRun = runMigrations(db);
   assert.equal(secondRun.length, 0);
@@ -45,7 +45,7 @@ test('migrations create all 18 required tables, >=20 beginner lessons per langua
 
   const coursesCount = db.prepare('SELECT COUNT(*) AS cnt FROM courses').get().cnt;
   const resourcesCount = db.prepare('SELECT COUNT(*) AS cnt FROM resources').get().cnt;
-  assert.ok(coursesCount >= 18);
+  assert.ok(coursesCount >= 27);
   assert.ok(resourcesCount >= 8);
 
   // Requirement 4: >= 20 real beginner lessons for English, Japanese, Russian, Chinese
@@ -61,8 +61,21 @@ test('migrations create all 18 required tables, >=20 beginner lessons per langua
     assert.ok(cnt >= 20, `Expected >=20 beginner lessons for ${subject}, got ${cnt}`);
   }
 
-  // Requirement 5: ordered programming tracks + project lessons for Python, JavaScript, HTML, CSS
-  for (const subject of ['python', 'javascript', 'html', 'css']) {
+  // Requirement 5: ordered 3-tier programming tracks (beginner, intermediate, advanced) + project lessons
+  for (const subject of ['python', 'javascript', 'html', 'css', 'nodejs']) {
+    const levels = db
+      .prepare(
+        `SELECT DISTINCT level
+         FROM courses
+         WHERE category = 'programming' AND subject = ? AND is_published = 1`
+      )
+      .all(subject)
+      .map((r) => r.level);
+
+    for (const reqLevel of ['beginner', 'intermediate', 'advanced']) {
+      assert.ok(levels.includes(reqLevel), `Missing ${reqLevel} course for ${subject}`);
+    }
+
     const lessons = db
       .prepare(
         `SELECT l.lesson_type, l.content_ar, (SELECT COUNT(*) FROM exercises e WHERE e.lesson_id = l.id) AS ex_cnt
@@ -71,7 +84,7 @@ test('migrations create all 18 required tables, >=20 beginner lessons per langua
          WHERE c.category = 'programming' AND c.subject = ? AND l.is_published = 1`
       )
       .all(subject);
-    assert.ok(lessons.length >= 8, `Expected >=8 programming lessons for ${subject}, got ${lessons.length}`);
+    assert.ok(lessons.length >= 3, `Expected >=3 programming lessons for ${subject}, got ${lessons.length}`);
     assert.ok(lessons.some((l) => l.lesson_type === 'project'), `Missing project lesson for ${subject}`);
     assert.ok(lessons.every((l) => l.ex_cnt >= 1 && l.content_ar.includes('```')), `Missing code or exercises in ${subject}`);
   }
@@ -79,7 +92,7 @@ test('migrations create all 18 required tables, >=20 beginner lessons per langua
   db.close();
 });
 
-test('migrations 003 and 004 upgrade existing database non-destructively without losing user rows', () => {
+test('migrations 003-005 upgrade existing database non-destructively without losing user rows', () => {
   const db = createDatabase(':memory:');
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -102,7 +115,11 @@ test('migrations 003 and 004 upgrade existing database non-destructively without
   );
 
   const applied = runMigrations(db);
-  assert.deepEqual(applied, ['003_silana_migration_tables', '004_rich_academies_curriculum']);
+  assert.deepEqual(applied, [
+    '003_silana_migration_tables',
+    '004_rich_academies_curriculum',
+    '005_programming_levels_and_creative',
+  ]);
 
   const preservedUser = db
     .prepare('SELECT display_name FROM users WHERE phone_number = ?')

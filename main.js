@@ -13,6 +13,7 @@ import { TutorModule } from './lib/bot/modules/tutor.js';
 import { LanguageAcademyModule } from './lib/bot/modules/languages.js';
 import { ProgrammingAcademyModule } from './lib/bot/modules/programming.js';
 import { ResearchEngine } from './lib/search/index.js';
+import { CreativeStudioModule } from './lib/creative/index.js';
 import { LibraryModule } from './lib/bot/modules/library.js';
 import { SafeSupportModule } from './lib/bot/modules/support.js';
 import { BotRouter } from './lib/bot/router.js';
@@ -58,6 +59,7 @@ export async function bootstrapApplication(envOverrides = {}) {
   const aiService = new AiService(config, { repos, logger });
   const audioService = new AudioService(config, { cleanupService, logger });
   const researchService = new ResearchEngine(config, { aiService, repos, logger });
+  const creativeService = new CreativeStudioModule(config, { repos, cleanupService, logger });
 
   const modules = {
     tutor: new TutorModule({ aiService, repos, researchService }),
@@ -65,6 +67,7 @@ export async function bootstrapApplication(envOverrides = {}) {
     programming: new ProgrammingAcademyModule({ repos, aiService }),
     research: researchService,
     audio: audioService,
+    creative: creativeService,
     library: new LibraryModule({ repos }),
     support: new SafeSupportModule({ repos, aiService }),
   };
@@ -105,6 +108,7 @@ export async function bootstrapApplication(envOverrides = {}) {
     whatsappManager,
     audioService,
     researchService,
+    creativeService,
     pluginManager,
   });
 

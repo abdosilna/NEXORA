@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadConfig } from '../config.js';
 import { AiService } from '../lib/ai/index.js';
 import { BaseAiProvider } from '../lib/ai/providers/base.js';
-import { classifyGeminiError } from '../lib/ai/providers/gemini.js';
+import { buildGeminiRequestConfig, classifyGeminiError, isGemini4Model } from '../lib/ai/providers/gemini.js';
 
 class FailingProvider extends BaseAiProvider {
   constructor() {
@@ -105,4 +105,42 @@ test('classifyGeminiError maps API auth, quota, and upstream failures to safe Ar
   const quotaErr = new Error('RESOURCE_EXHAUSTED');
   quotaErr.status = 429;
   assert.equal(classifyGeminiError(quotaErr).code, 'quota_exceeded');
+});
+
+test('buildGeminiRequestConfig omits maxOutputTokens and temperature on Gemini 4 models while preserving them on Gemini 3', () => {
+  assert.equal(isGemini4Model('gemini-4-hydrogen'), true);
+  assert.equal(isGemini4Model('models/gemini-4-neon'), true);
+  assert.equal(isGemini4Model('gemini-3.1-flash-lite-preview'), false);
+
+  const g4Config = buildGeminiRequestConfig({
+    model: 'gemini-4-hydrogen',
+    systemPrompt: 'مرشد تعليمي',
+    maxTokens: 900,
+    temperature: 0.4,
+  });
+  assert.equal('maxOutputTokens' in g4Config, false);
+  assert.equal('temperature' in g4Config, false);
+  assert.ok(g4Config.systemInstruction.includes('مرشد تعليمي'));
+  assert.ok(g4Config.systemInstruction.includes('كلمة'));
+
+  const g4PrefixedConfig = buildGeminiRequestConfig({
+    model: 'models/gemini-4-neon',
+    systemPrompt: 'مرشد',
+    maxTokens: 600,
+  });
+  assert.equal('maxOutputTokens' in g4PrefixedConfig, false);
+
+  const g3Config = buildGeminiRequestConfig({
+    model: 'gemini-3.1-flash-lite-preview',
+    systemPrompt: 'مرشد تعليمي',
+    maxTokens: 900,
+    temperature: 0.4,
+  });
+  assert.equal(g3Config.maxOutputTokens, 900);
+  assert.equal(g3Config.temperature, 0.4);
+});
+
+test('loadConfig keeps DATABASE_PATH=":memory:" verbatim without resolving a file path', () => {
+  const cfg = loadConfig({ DATABASE_PATH: ':memory:' }, { loadDotenv: false });
+  assert.equal(cfg.database.path, ':memory:');
 });

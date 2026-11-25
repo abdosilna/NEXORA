@@ -7,10 +7,11 @@ import { createRepositories } from '../lib/database/repositories/index.js';
 import { AiService } from '../lib/ai/index.js';
 import { AudioService } from '../lib/tts/index.js';
 import { ResearchModule } from '../lib/search/index.js';
+import { CreativeStudioModule } from '../lib/creative/index.js';
 import { HealthService } from '../lib/utils/health.js';
 import { createAdminServer } from '../lib/admin/server.js';
 
-test('admin bootstrap locks after first admin, enforces login, RBAC, and blocks .env exposure', async () => {
+test('admin bootstrap locks after first admin, enforces login, RBAC, privacy, project lessons, and blocks .env exposure', async () => {
   const config = loadConfig({ DATABASE_PATH: ':memory:', AI_PROVIDER: 'disabled' }, { loadDotenv: false });
   const db = createDatabase(':memory:');
   runMigrations(db);
@@ -18,7 +19,8 @@ test('admin bootstrap locks after first admin, enforces login, RBAC, and blocks 
   const aiService = new AiService(config, { repos });
   const audioService = new AudioService(config);
   const researchService = new ResearchModule(config, { aiService, repos });
-  const healthService = new HealthService({ config, db, aiService, whatsappManager: null, audioService, researchService });
+  const creativeService = new CreativeStudioModule(config, { repos });
+  const healthService = new HealthService({ config, db, aiService, whatsappManager: null, audioService, researchService, creativeService });
 
   const app = createAdminServer({ config, repos, healthService });
   const server = await new Promise((resolve) => {
@@ -74,6 +76,34 @@ test('admin bootstrap locks after first admin, enforces login, RBAC, and blocks 
     // 5. Protected paths like /.env or /data/auth are blocked
     const envBlock = await fetch(`${baseUrl}/.env`);
     assert.equal(envBlock.status, 403);
+
+    // 6. Curriculum accepts 'project' lesson_type
+    const courses = repos.curriculum.listCourses({ category: 'programming', subject: 'python' });
+    const createProject = await fetch(`${baseUrl}/api/admin/lessons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bootData.token}` },
+      body: JSON.stringify({
+        course_id: courses[0].id,
+        lesson_type: 'project',
+        title_ar: 'مشروع اختباري',
+        content_ar: 'وصف المشروع التجريبي مع كود:\n```python\nprint("hi")\n```',
+      }),
+    });
+    assert.equal(createProject.status, 201);
+    const createdPayload = await createProject.json();
+    assert.equal(createdPayload.lesson.lesson_type, 'project');
+
+    // 7. Learner private conversations are never exposed in admin user summary
+    const { user } = repos.users.registerOrTouch({ whatsappJid: '966559998877@s.whatsapp.net', displayName: 'سلمى' });
+    repos.conversations.append({ userId: user.id, role: 'user', messageText: 'سر دراسي خاص جداً لا يظهر للمشرفين', module: 'support' });
+
+    const userSummaryRes = await fetch(`${baseUrl}/api/admin/users/${user.id}/summary`, {
+      headers: { Authorization: `Bearer ${bootData.token}` },
+    });
+    assert.equal(userSummaryRes.status, 200);
+    const summaryText = await userSummaryRes.text();
+    assert.ok(!summaryText.includes('conversations'));
+    assert.ok(!summaryText.includes('سر دراسي خاص جداً'));
   } finally {
     await new Promise((r) => server.close(r));
     db.close();

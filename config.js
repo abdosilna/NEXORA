@@ -56,6 +56,12 @@ const EnvSchema = z.object({
   TTS_MAX_CHARS: z.coerce.number().int().min(50).max(2000).default(500),
   TTS_MAX_DURATION_SEC: z.coerce.number().int().min(5).max(120).default(45),
   TEMP_MEDIA_DIR: z.string().trim().min(1).default('data/tmp-media'),
+
+  IMAGE_PROVIDER: z.enum(['disabled', 'gemini', 'openai']).default('disabled'),
+  IMAGE_API_KEY: z.string().trim().optional().default(''),
+  IMAGE_MODEL: z.string().trim().optional().default('gemini-3.1-flash-lite-image'),
+  IMAGE_TIMEOUT_MS: z.coerce.number().int().min(3000).max(120000).default(25000),
+  IMAGE_MAX_BYTES: z.coerce.number().int().min(262144).max(10485760).default(5 * 1024 * 1024),
 });
 
 export function getPrefixes(primary = '.') {
@@ -107,9 +113,10 @@ export function loadConfig(envSource, { loadDotenv = true, overrides = undefined
     adminPhone = check.digits;
   }
 
-  const resolvedDbPath = path.resolve(cfg.DATABASE_PATH);
+  const rawDbPath = String(cfg.DATABASE_PATH || '').trim();
+  const resolvedDbPath = rawDbPath === ':memory:' ? ':memory:' : path.resolve(rawDbPath);
   const resolvedAuthDir = path.resolve(cfg.WHATSAPP_AUTH_DIR);
-  if (resolvedDbPath.startsWith('/tmp/') || resolvedAuthDir.startsWith('/tmp/')) {
+  if ((resolvedDbPath !== ':memory:' && resolvedDbPath.startsWith('/tmp/')) || resolvedAuthDir.startsWith('/tmp/')) {
     throw new Error('Persistent DATABASE_PATH and WHATSAPP_AUTH_DIR must not reside in /tmp');
   }
 
@@ -120,9 +127,14 @@ export function loadConfig(envSource, { loadDotenv = true, overrides = undefined
 
   const effectiveAiApiKey =
     cfg.AI_API_KEY || (cfg.AI_PROVIDER === 'gemini' ? String(resolvedSource.GEMINI_API_KEY || '').trim() : '');
+  const effectiveImageApiKey =
+    cfg.IMAGE_API_KEY || (cfg.IMAGE_PROVIDER === 'gemini' ? String(resolvedSource.GEMINI_API_KEY || '').trim() : '');
 
   if (cfg.AI_PROVIDER !== 'disabled' && !effectiveAiApiKey) {
     warnings.push(`AI_API_KEY is not configured for ${cfg.AI_PROVIDER}; AI Assistant will inform users until an API key is provided`);
+  }
+  if (cfg.IMAGE_PROVIDER !== 'disabled' && !effectiveImageApiKey) {
+    warnings.push(`IMAGE_API_KEY is not configured for ${cfg.IMAGE_PROVIDER}; Creative Studio will guide setup until configured`);
   }
   if ((cfg.SEARCH_PROVIDER === 'serper' || cfg.SEARCH_PROVIDER === 'brave') && !cfg.SEARCH_API_KEY) {
     warnings.push(`SEARCH_API_KEY is missing for ${cfg.SEARCH_PROVIDER}; research queries will prompt for API key setup`);
@@ -173,6 +185,14 @@ export function loadConfig(envSource, { loadDotenv = true, overrides = undefined
       maxDurationSec: cfg.TTS_MAX_DURATION_SEC,
       tempMediaDir: path.resolve(cfg.TEMP_MEDIA_DIR),
     },
+    creative: {
+      provider: cfg.IMAGE_PROVIDER,
+      apiKey: effectiveImageApiKey,
+      model: cfg.IMAGE_MODEL || (cfg.IMAGE_PROVIDER === 'openai' ? 'gpt-image-1' : 'gemini-3.1-flash-lite-image'),
+      timeoutMs: cfg.IMAGE_TIMEOUT_MS,
+      maxBytes: cfg.IMAGE_MAX_BYTES,
+      tempMediaDir: path.resolve(cfg.TEMP_MEDIA_DIR),
+    },
     warnings,
   };
 }
@@ -190,5 +210,8 @@ export function getPublicConfigSummary(config) {
     searchProvider: config.research.provider,
     ttsProvider: config.tts.provider,
     ttsConfigured: config.tts.provider !== 'disabled' && Boolean(config.tts.apiKey),
+    imageProvider: config.creative?.provider || 'disabled',
+    imageModel: config.creative?.model || 'none',
+    imageConfigured: (config.creative?.provider || 'disabled') !== 'disabled' && Boolean(config.creative?.apiKey),
   };
 }

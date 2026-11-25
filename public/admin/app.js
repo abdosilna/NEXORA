@@ -337,6 +337,11 @@ function renderOverviewHtml() {
                 <td>${escapeHtml(health.tts?.provider || 'disabled')}</td>
                 <td>${formatStatusLabel(health.tts?.enabled ? 'enabled' : 'disabled')}</td>
               </tr>
+              <tr>
+                <td>Creative Studio</td>
+                <td>${escapeHtml(health.creative?.provider || 'disabled')} · ${escapeHtml(health.creative?.model || '')}</td>
+                <td>${formatStatusLabel(health.creative?.enabled ? 'enabled' : 'disabled')}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -526,6 +531,7 @@ function renderCurriculumHtml() {
                     <option value="writing">Writing</option>
                     <option value="listening">Listening</option>
                     <option value="pronunciation">Pronunciation</option>
+                    <option value="project">Project</option>
                   </select>
                 </div>
                 <div class="field full">
@@ -753,6 +759,7 @@ function renderSettingsHtml() {
               <tr><th>AI Key Status</th><td>${env.aiConfigured ? 'Configured in env' : 'Not set (Fallback active)'}</td></tr>
               <tr><th>Search Provider</th><td>${escapeHtml(env.searchProvider)}</td></tr>
               <tr><th>TTS Provider</th><td>${escapeHtml(env.ttsProvider)} (${env.ttsConfigured ? 'Ready' : 'Disabled'})</td></tr>
+              <tr><th>Image Provider</th><td>${escapeHtml(env.imageProvider || 'disabled')} (${env.imageConfigured ? 'Ready' : 'Disabled'})</td></tr>
               <tr><th>WhatsApp Phone</th><td>${env.whatsappConfigured ? 'Configured in WHATSAPP_NUMBER' : 'Unconfigured'}</td></tr>
             </tbody>
           </table>

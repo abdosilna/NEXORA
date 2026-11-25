@@ -70,6 +70,11 @@ await Promise.all([
   import('../lib/whatsapp/simple.js'),
   import('../lib/whatsapp/message-handler.js'),
   import('../lib/bot/router.js'),
+  import('../lib/bot/modules/library.js'),
+  import('../lib/bot/modules/programming.js'),
+  import('../lib/bot/modules/languages.js'),
+  import('../lib/bot/modules/tutor.js'),
+  import('../lib/creative/index.js'),
   import('../lib/admin/server.js'),
 ]);
 
