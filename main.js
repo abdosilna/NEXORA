@@ -60,7 +60,7 @@ export async function bootstrapApplication(envOverrides = {}) {
   const researchService = new ResearchEngine(config, { aiService, repos, logger });
 
   const modules = {
-    tutor: new TutorModule({ aiService, repos }),
+    tutor: new TutorModule({ aiService, repos, researchService }),
     languages: new LanguageAcademyModule({ repos, audioService }),
     programming: new ProgrammingAcademyModule({ repos, aiService }),
     research: researchService,
@@ -77,7 +77,10 @@ export async function bootstrapApplication(envOverrides = {}) {
   await pluginManager.loadPlugins();
 
   const router = new BotRouter({ config, repos, modules });
-  const sender = new WhatsAppSender({ logger });
+  const sender = new WhatsAppSender({
+    logger,
+    interactiveMenus: config.whatsapp.interactiveMenus,
+  });
   const messageHandler = new IncomingMessageHandler({
     config,
     repos,

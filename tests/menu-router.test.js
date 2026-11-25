@@ -5,6 +5,7 @@ import { createDatabase } from '../lib/database/connection.js';
 import { runMigrations } from '../lib/database/migrations/runner.js';
 import { createRepositories } from '../lib/database/repositories/index.js';
 import { AiService } from '../lib/ai/index.js';
+import { BaseAiProvider } from '../lib/ai/providers/base.js';
 import { AudioService } from '../lib/tts/index.js';
 import { TutorModule } from '../lib/bot/modules/tutor.js';
 import { LanguageAcademyModule } from '../lib/bot/modules/languages.js';
@@ -14,18 +15,19 @@ import { LibraryModule } from '../lib/bot/modules/library.js';
 import { SafeSupportModule } from '../lib/bot/modules/support.js';
 import { BotRouter } from '../lib/bot/router.js';
 
-function createTestHarness() {
+function createTestHarness({ aiProvider = null } = {}) {
   const config = loadConfig({ DATABASE_PATH: ':memory:', AI_PROVIDER: 'disabled', TTS_PROVIDER: 'disabled' }, { loadDotenv: false });
   const db = createDatabase(':memory:');
   runMigrations(db);
   const repos = createRepositories(db);
-  const aiService = new AiService(config, { repos });
+  const aiService = new AiService(config, { repos, customProvider: aiProvider });
   const audioService = new AudioService(config);
+  const researchService = new ResearchModule(config, { aiService, repos });
   const modules = {
-    tutor: new TutorModule({ aiService, repos }),
+    tutor: new TutorModule({ aiService, repos, researchService }),
     languages: new LanguageAcademyModule({ repos, audioService }),
     programming: new ProgrammingAcademyModule({ repos, aiService }),
-    research: new ResearchModule(config, { aiService, repos }),
+    research: researchService,
     audio: audioService,
     library: new LibraryModule({ repos }),
     support: new SafeSupportModule({ repos, aiService }),
@@ -35,18 +37,26 @@ function createTestHarness() {
   return { db, repos, router, user };
 }
 
-test('menu navigation works across academies, home, back, cancel, help, and safe support', async () => {
+test('menu navigation works across multi-unit language academy, multi-level back, validation, cancel, help, and safe support', async () => {
   const { db, router, user } = createTestHarness();
 
   const home = await router.route({ user, text: 'رئيسية' });
   assert.ok(home.text.includes('القائمة الرئيسية'));
+  assert.ok(home.interactiveList?.sections?.length >= 3);
 
-  // Language Academy -> Japanese -> Beginner -> Lesson -> Quiz
+  // Invalid bare number at home triggers helpful validation notice
+  const badChoice = await router.route({ user, text: '99' });
+  assert.ok(badChoice.text.includes('غير موجود'));
+
+  // Language Academy -> Japanese -> Beginner -> Unit 1 -> Lesson 1 -> Multi-step Back
   const langMenu = await router.route({ user, text: '2' });
   assert.ok(langMenu.text.includes('اليابانية'));
 
   const jpLevels = await router.route({ user, text: '1' });
   assert.ok(jpLevels.text.includes('مبتدئ'));
+
+  const jpUnits = await router.route({ user, text: '1' });
+  assert.ok(jpUnits.text.includes('الوحدة 1: الهيراغانا والتحيات'));
 
   const jpLessons = await router.route({ user, text: '1' });
   assert.ok(jpLessons.text.includes('التحيات'));
@@ -54,9 +64,18 @@ test('menu navigation works across academies, home, back, cancel, help, and safe
   const lessonView = await router.route({ user, text: '1' });
   assert.ok(lessonView.text.includes('Konnichiwa'));
 
-  // Back & Cancel & Help
-  const backRes = await router.route({ user, text: 'رجوع' });
-  assert.ok(backRes.text.includes('أكاديمية اللغات'));
+  // Multi-level Back: in_lesson -> select_lesson -> select_unit -> select_level -> openHome -> Main Menu
+  const backToLessons = await router.route({ user, text: 'رجوع' });
+  assert.ok(backToLessons.text.includes('الوحدة 1: الهيراغانا والتحيات'));
+
+  const backToUnits = await router.route({ user, text: 'رجوع' });
+  assert.ok(backToUnits.text.includes('الوحدات التعليمية'));
+
+  const backToLevels = await router.route({ user, text: 'رجوع' });
+  assert.ok(backToLevels.text.includes('اختر المستوى الدراسي'));
+
+  const backToLangs = await router.route({ user, text: 'رجوع' });
+  assert.ok(backToLangs.text.includes('أكاديمية اللغات'));
 
   const helpRes = await router.route({ user, text: 'مساعدة' });
   assert.ok(helpRes.text.includes('دليل استخدام'));
@@ -72,6 +91,30 @@ test('menu navigation works across academies, home, back, cancel, help, and safe
   await router.route({ user, selectedId: 'menu:support', text: '' });
   const medicalGuard = await router.route({ user, text: 'أريد تشخيص طبي وجرعة دواء' });
   assert.ok(medicalGuard.text.includes('لا أقدّم تشخيصاً طبياً'));
+
+  db.close();
+});
+
+test('home menu smartly routes general questions to conversational AI and explicit search to ResearchEngine', async () => {
+  const mockAi = new (class extends BaseAiProvider {
+    constructor() {
+      super({ name: 'mock', model: 'gemini-4-hydrogen' });
+    }
+    isConfigured() {
+      return true;
+    }
+    async generate({ messages }) {
+      const q = messages[messages.length - 1].content;
+      return { text: `إجابة عربية واضحة حول: ${q}`, provider: 'mock', model: 'gemini-4-hydrogen' };
+    }
+  })();
+
+  const { db, repos, router, user } = createTestHarness({ aiProvider: mockAi });
+  await router.route({ user, text: 'رئيسية' });
+
+  const qRes = await router.route({ user, text: 'ما هي البرمجة؟' });
+  assert.ok(qRes.text.includes('إجابة عربية واضحة حول: ما هي البرمجة؟'));
+  assert.equal(repos.users.getState(user.id).menu, 'tutor');
 
   db.close();
 });

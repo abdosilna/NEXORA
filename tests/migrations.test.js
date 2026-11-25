@@ -26,10 +26,10 @@ const EXPECTED_TABLES = [
   'plugin_stats',
 ];
 
-test('migrations create all 18 required tables and are idempotent', () => {
+test('migrations create all 18 required tables, >=20 beginner lessons per language, and complete programming tracks', () => {
   const db = createDatabase(':memory:');
   const firstRun = runMigrations(db);
-  assert.equal(firstRun.length, 3);
+  assert.equal(firstRun.length, 4);
 
   const secondRun = runMigrations(db);
   assert.equal(secondRun.length, 0);
@@ -45,13 +45,41 @@ test('migrations create all 18 required tables and are idempotent', () => {
 
   const coursesCount = db.prepare('SELECT COUNT(*) AS cnt FROM courses').get().cnt;
   const resourcesCount = db.prepare('SELECT COUNT(*) AS cnt FROM resources').get().cnt;
-  assert.ok(coursesCount >= 12);
+  assert.ok(coursesCount >= 18);
   assert.ok(resourcesCount >= 8);
+
+  // Requirement 4: >= 20 real beginner lessons for English, Japanese, Russian, Chinese
+  for (const subject of ['english', 'japanese', 'russian', 'chinese']) {
+    const cnt = db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM lessons l
+         JOIN courses c ON c.id = l.course_id
+         WHERE c.category = 'language' AND c.subject = ? AND c.level = 'beginner' AND l.is_published = 1`
+      )
+      .get(subject).cnt;
+    assert.ok(cnt >= 20, `Expected >=20 beginner lessons for ${subject}, got ${cnt}`);
+  }
+
+  // Requirement 5: ordered programming tracks + project lessons for Python, JavaScript, HTML, CSS
+  for (const subject of ['python', 'javascript', 'html', 'css']) {
+    const lessons = db
+      .prepare(
+        `SELECT l.lesson_type, l.content_ar, (SELECT COUNT(*) FROM exercises e WHERE e.lesson_id = l.id) AS ex_cnt
+         FROM lessons l
+         JOIN courses c ON c.id = l.course_id
+         WHERE c.category = 'programming' AND c.subject = ? AND l.is_published = 1`
+      )
+      .all(subject);
+    assert.ok(lessons.length >= 8, `Expected >=8 programming lessons for ${subject}, got ${lessons.length}`);
+    assert.ok(lessons.some((l) => l.lesson_type === 'project'), `Missing project lesson for ${subject}`);
+    assert.ok(lessons.every((l) => l.ex_cnt >= 1 && l.content_ar.includes('```')), `Missing code or exercises in ${subject}`);
+  }
 
   db.close();
 });
 
-test('migration 003 upgrades existing database non-destructively without losing user rows', () => {
+test('migrations 003 and 004 upgrade existing database non-destructively without losing user rows', () => {
   const db = createDatabase(':memory:');
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -74,12 +102,15 @@ test('migration 003 upgrades existing database non-destructively without losing 
   );
 
   const applied = runMigrations(db);
-  assert.deepEqual(applied, ['003_silana_migration_tables']);
+  assert.deepEqual(applied, ['003_silana_migration_tables', '004_rich_academies_curriculum']);
 
   const preservedUser = db
     .prepare('SELECT display_name FROM users WHERE phone_number = ?')
     .get('966509876543');
   assert.equal(preservedUser?.display_name, 'طالب قديم');
+
+  const cols = db.prepare(`PRAGMA table_info(ai_learning_profiles)`).all();
+  assert.ok(cols.some((c) => c.name === 'memory_consent'), 'Expected memory_consent column after migration 004');
 
   db.close();
 });

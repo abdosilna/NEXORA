@@ -26,6 +26,11 @@ const EnvSchema = z.object({
     .optional()
     .default('true')
     .transform((v) => v !== 'false' && v !== '0'),
+  WHATSAPP_INTERACTIVE_MENUS: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((v) => v !== 'false' && v !== '0'),
 
   APP_SECRET: z.string().trim().optional().default(''),
   ADMIN_BOOTSTRAP_USERNAME: z.string().trim().optional().default(''),
@@ -35,13 +40,13 @@ const EnvSchema = z.object({
 
   AI_PROVIDER: z.enum(['gemini', 'openai', 'anthropic', 'disabled']).default('gemini'),
   AI_API_KEY: z.string().trim().optional().default(''),
-  AI_MODEL: z.string().trim().default('gemini-2.5-flash'),
+  AI_MODEL: z.string().trim().default('gemini-4-hydrogen'),
   AI_BASE_URL: z.string().trim().optional().default(''),
   AI_TIMEOUT_MS: z.coerce.number().int().min(2000).max(120000).default(20000),
   AI_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
   AI_DAILY_USER_BUDGET: z.coerce.number().int().min(1).max(500).default(40),
 
-  SEARCH_PROVIDER: z.enum(['wikipedia', 'duckduckgo', 'serper', 'brave', 'disabled']).default('wikipedia'),
+  SEARCH_PROVIDER: z.enum(['multi', 'wikipedia', 'duckduckgo', 'serper', 'brave', 'disabled']).default('multi'),
   SEARCH_API_KEY: z.string().trim().optional().default(''),
   RESEARCH_TIMEOUT_MS: z.coerce.number().int().min(2000).max(30000).default(10000),
 
@@ -117,7 +122,10 @@ export function loadConfig(envSource, { loadDotenv = true, overrides = undefined
     cfg.AI_API_KEY || (cfg.AI_PROVIDER === 'gemini' ? String(resolvedSource.GEMINI_API_KEY || '').trim() : '');
 
   if (cfg.AI_PROVIDER !== 'disabled' && !effectiveAiApiKey) {
-    warnings.push(`AI_API_KEY is not configured for ${cfg.AI_PROVIDER}; AI Tutor will use deterministic offline fallback`);
+    warnings.push(`AI_API_KEY is not configured for ${cfg.AI_PROVIDER}; AI Assistant will inform users until an API key is provided`);
+  }
+  if ((cfg.SEARCH_PROVIDER === 'serper' || cfg.SEARCH_PROVIDER === 'brave') && !cfg.SEARCH_API_KEY) {
+    warnings.push(`SEARCH_API_KEY is missing for ${cfg.SEARCH_PROVIDER}; research queries will prompt for API key setup`);
   }
 
   return {
@@ -133,6 +141,7 @@ export function loadConfig(envSource, { loadDotenv = true, overrides = undefined
       adminNumber: adminPhone,
       authDir: resolvedAuthDir,
       autoConnect: cfg.WHATSAPP_AUTO_CONNECT,
+      interactiveMenus: cfg.WHATSAPP_INTERACTIVE_MENUS,
     },
     security: {
       appSecret,
